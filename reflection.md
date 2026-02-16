@@ -3,9 +3,17 @@
 ## 1. System Design
 
 **a. Initial design**
+Before implementation, I identified three core user actions:
 
-- Briefly describe your initial UML design.
-- What classes did you include, and what responsibilities did you assign to each?
+1. **Add and Manage Pets**: Register pet(s) with basic info (name, species, age, special needs)
+2. **Create and Prioritize Care Tasks**: Define tasks with duration, priority, and recurrence
+3. **Generate Daily Schedule**: Request an optimized daily plan based on constraints and priorities
+
+Based on these actions, I plan to design four main classes:
+- **Owner**: Represents the pet owner with preferences and time constraints
+- **Pet**: Represents a pet with attributes and special needs
+- **Task**: Represents a care task with duration, priority, frequency, and assignment to a pet
+- **Scheduler**: Contains the algorithmic logic to organize tasks into a daily plan
 
 **b. Design changes**
 
