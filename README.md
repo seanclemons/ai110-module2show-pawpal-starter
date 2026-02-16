@@ -54,3 +54,24 @@ Sort your tasks multiple ways to find the best schedule:
 - **Smart Combo**: Priority + duration for optimal balance
 - **By Pet**: Group all tasks for each pet together
 ```python
+
+## 🧪 Testing PawPal+
+
+### Running Tests
+
+PawPal+ includes a comprehensive test suite to ensure reliability and correctness.
+
+# Run all tests
+python -m pytest
+Test suite includes **26 automated tests** that verify:
+
+- **Core functionality**: Task creation, completion tracking, pet/owner management, and input validation
+- **Sorting algorithms**: Tasks sorted correctly by priority, duration, and multi-criteria combinations
+- **Filtering methods**: Filtering by pet, completion status, priority level, and task type
+- **Conflict detection**: Identifying overlapping tasks, same-pet conflicts, and validating sequential tasks
+- **Edge cases**: Empty collections, zero available time, perfect time fits, and invalid inputs
+- **Performance**: System handles 100+ tasks efficiently in under 1 second
+
+**Test Results**: ✅ 26/26 passing in 0.19s
+
+**Confidence Level**: 5 stars
