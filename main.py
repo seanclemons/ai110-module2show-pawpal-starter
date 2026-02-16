@@ -1,140 +1,168 @@
 """
-PawPal+ Demo Script
-Demonstrates the core functionality of the pet care scheduling system.
+PawPal+ Demo Script - Testing Conflict Detection
+Demonstrates conflict detection with overlapping tasks.
 """
 
 from pawpal_system import Owner, Pet, Task, Scheduler
 
 
 def main():
-    print("\n🐾 Welcome to PawPal+ Demo! 🐾\n")
+    print("\n🐾 PawPal+ Conflict Detection Demo! 🐾\n")
     
-    # Step 1: Create an Owner
-    print("Creating owner...")
-    sarah = Owner(name="Sarah", available_time=180)  # 3 hours per day
-    print(f"✓ {sarah.name} created with {sarah.available_time} minutes available per day\n")
+    # Create Owner and Pets
+    print("Setting up owner and pets...")
+    owner = Owner(name="Alex", available_time=300)
     
-    # Step 2: Create Pets
-    print("Registering pets...")
-    max_dog = Pet(
-        name="Max",
-        species="Dog",
-        age=5,
-        owner=sarah,
-        special_needs=["Arthritis medication", "Slow walks only"]
-    )
+    max_dog = Pet(name="Max", species="Dog", age=5, owner=owner)
+    bella_dog = Pet(name="Bella", species="Dog", age=3, owner=owner)
     
-    whiskers = Pet(
-        name="Whiskers",
-        species="Cat",
-        age=3,
-        owner=sarah
-    )
+    print(f"✓ Created owner: {owner.name}")
+    print(f"✓ Registered pets: {', '.join(p.name for p in owner.pets)}\n")
     
-    print(f"✓ {max_dog.get_info()}")
-    print(f"✓ {whiskers.get_info()}")
-    print(f"✓ Total pets registered: {len(sarah.pets)}\n")
+    # Create Scheduler
+    scheduler = Scheduler(owner=owner)
     
-    # Step 3: Create Tasks (at least 3 with different durations)
-    print("Adding tasks...")
+    print("="*70)
+    print("TEST 1: NO CONFLICTS (Sequential Tasks)")
+    print("="*70)
     
-    # High priority tasks
-    task1 = Task(
-        name="Give Max arthritis medication",
-        task_type="medication",
-        duration=5,
-        priority=1,  # Highest priority
-        pet=max_dog
-    )
+    # Create tasks without conflicts
+    task1 = Task(name="Feed Max", task_type="feeding", duration=15, priority=1, pet=max_dog)
+    task2 = Task(name="Walk Max", task_type="walk", duration=30, priority=2, pet=max_dog)
+    task3 = Task(name="Feed Bella", task_type="feeding", duration=15, priority=1, pet=bella_dog)
     
-    task2 = Task(
-        name="Feed Max breakfast",
-        task_type="feeding",
-        duration=15,
-        priority=1,
-        pet=max_dog
-    )
+    scheduler.load_tasks_from_owner()
+    scheduler.generate_daily_plan(sort_method="priority")
     
-    task3 = Task(
-        name="Feed Whiskers breakfast",
-        task_type="feeding",
-        duration=10,
-        priority=1,
-        pet=whiskers
-    )
+    # Assign time slots starting at 8:00 AM (480 minutes from midnight)
+    scheduler.assign_time_slots(start_time=480)
     
-    # Medium priority tasks
-    task4 = Task(
-        name="Morning walk with Max",
-        task_type="walk",
-        duration=30,
-        priority=2,
-        pet=max_dog
-    )
+    print("\nScheduled tasks:")
+    for task in scheduler.daily_plan:
+        end_time = task.scheduled_time + task.duration
+        print(f"  {scheduler._format_time(task.scheduled_time)}-{scheduler._format_time(end_time)}: {task.name} ({task.pet.name})")
     
-    task5 = Task(
-        name="Play session with Whiskers",
-        task_type="enrichment",
-        duration=20,
-        priority=3,
-        pet=whiskers
-    )
+    # Check for conflicts
+    scheduler.print_conflict_report()
     
-    # Lower priority tasks
-    task6 = Task(
-        name="Brush Max's coat",
-        task_type="grooming",
-        duration=25,
-        priority=4,
-        pet=max_dog
-    )
+    # ============ TEST 2: TIME CONFLICTS ============
+    print("="*70)
+    print("TEST 2: TIME CONFLICTS (Same Start Time)")
+    print("="*70)
     
-    task7 = Task(
-        name="Clean Whiskers' litter box",
-        task_type="cleaning",
-        duration=10,
-        priority=3,
-        pet=whiskers
-    )
+    # Clear previous tasks
+    owner.pets[0].tasks.clear()
+    owner.pets[1].tasks.clear()
     
-    task8 = Task(
-        name="Evening walk with Max",
-        task_type="walk",
-        duration=30,
-        priority=2,
-        pet=max_dog
-    )
+    # Create tasks with SAME start time (9:00 AM = 540 minutes)
+    task1 = Task(name="Walk Max", task_type="walk", duration=30, priority=2, pet=max_dog, scheduled_time=540)
+    task2 = Task(name="Walk Bella", task_type="walk", duration=30, priority=2, pet=bella_dog, scheduled_time=540)
+    task3 = Task(name="Feed Max", task_type="feeding", duration=15, priority=1, pet=max_dog, scheduled_time=480)
     
-    # Count total tasks
-    all_tasks = sarah.get_all_tasks()
-    print(f"✓ Added {len(all_tasks)} tasks")
-    for task in all_tasks:
-        print(f"  - {task.name} ({task.duration} min, priority {task.priority})")
+    scheduler2 = Scheduler(owner=owner)
+    scheduler2.load_tasks_from_owner()
+    scheduler2.generate_daily_plan(sort_method="priority")
     
-    print()
+    print("\nScheduled tasks:")
+    for task in scheduler2.daily_plan:
+        if task.scheduled_time:
+            end_time = task.scheduled_time + task.duration
+            print(f"  {scheduler2._format_time(task.scheduled_time)}-{scheduler2._format_time(end_time)}: {task.name} ({task.pet.name})")
     
-    # Step 4: Create Scheduler and Generate Plan
-    print("Initializing scheduler and generating daily plan...\n")
-    scheduler = Scheduler(owner=sarah)
-    scheduler.generate_daily_plan()
+    # Check for conflicts
+    scheduler2.print_conflict_report()
     
-    # Step 5: Display Today's Schedule
-    print(scheduler.get_plan_summary())
+    # ============ TEST 3: PET CONFLICTS ============
+    print("="*70)
+    print("TEST 3: PET CONFLICTS (Same Pet, Overlapping Times)")
+    print("="*70)
     
-    # Additional Summary Stats
-    print(f"{'='*60}")
-    print(f"📊 SCHEDULING SUMMARY")
-    print(f"{'='*60}")
-    print(f"Total tasks: {len(all_tasks)}")
-    print(f"Tasks scheduled: {len(scheduler.daily_plan)}")
-    print(f"Tasks in conflict: {len(scheduler.conflicts)}")
-    print(f"Time efficiency: {scheduler.calculate_total_time()}/{sarah.get_available_time()} minutes ({scheduler.calculate_total_time()/sarah.get_available_time()*100:.1f}%)")
-    print(f"{'='*60}\n")
+    # Clear previous tasks
+    owner.pets[0].tasks.clear()
+    owner.pets[1].tasks.clear()
     
-    # Show which pets are involved
-    scheduled_pets = set(task.pet.name for task in scheduler.daily_plan)
-    print(f"🐾 Pets in today's schedule: {', '.join(scheduled_pets)}")
-    print()
+    # Create overlapping tasks for the SAME pet
+    task1 = Task(name="Walk Max", task_type="walk", duration=45, priority=2, pet=max_dog, scheduled_time=540)
+    task2 = Task(name="Give Max medication", task_type="medication", duration=10, priority=1, pet=max_dog, scheduled_time=560)
+    task3 = Task(name="Feed Bella", task_type="feeding", duration=15, priority=1, pet=bella_dog, scheduled_time=540)
+    
+    scheduler3 = Scheduler(owner=owner)
+    scheduler3.load_tasks_from_owner()
+    scheduler3.generate_daily_plan(sort_method="priority")
+    
+    print("\nScheduled tasks:")
+    for task in scheduler3.daily_plan:
+        if task.scheduled_time:
+            end_time = task.scheduled_time + task.duration
+            print(f"  {scheduler3._format_time(task.scheduled_time)}-{scheduler3._format_time(end_time)}: {task.name} ({task.pet.name})")
+    
+    # Check for conflicts
+    scheduler3.print_conflict_report()
+    
+    # ============ TEST 4: MULTIPLE CONFLICTS ============
+    print("="*70)
+    print("TEST 4: MULTIPLE CONFLICTS (Complex Scenario)")
+    print("="*70)
+    
+    # Clear previous tasks
+    owner.pets[0].tasks.clear()
+    owner.pets[1].tasks.clear()
+    
+    # Create a mess of overlapping tasks
+    task1 = Task(name="Walk Max", task_type="walk", duration=30, priority=2, pet=max_dog, scheduled_time=540)
+    task2 = Task(name="Walk Bella", task_type="walk", duration=30, priority=2, pet=bella_dog, scheduled_time=540)
+    task3 = Task(name="Groom Max", task_type="grooming", duration=45, priority=3, pet=max_dog, scheduled_time=550)
+    task4 = Task(name="Feed Max", task_type="feeding", duration=15, priority=1, pet=max_dog, scheduled_time=560)
+    
+    scheduler4 = Scheduler(owner=owner)
+    scheduler4.load_tasks_from_owner()
+    scheduler4.generate_daily_plan(sort_method="priority")
+    
+    print("\nScheduled tasks:")
+    for task in scheduler4.daily_plan:
+        if task.scheduled_time:
+            end_time = task.scheduled_time + task.duration
+            print(f"  {scheduler4._format_time(task.scheduled_time)}-{scheduler4._format_time(end_time)}: {task.name} ({task.pet.name})")
+    
+    # Check for conflicts
+    scheduler4.print_conflict_report()
+    
+    # ============ TEST 5: AUTO TIME SLOT ASSIGNMENT ============
+    print("="*70)
+    print("TEST 5: AUTOMATIC TIME SLOT ASSIGNMENT (No Conflicts)")
+    print("="*70)
+    
+    # Clear previous tasks
+    owner.pets[0].tasks.clear()
+    owner.pets[1].tasks.clear()
+    
+    # Create tasks WITHOUT scheduled times
+    task1 = Task(name="Feed Max", task_type="feeding", duration=15, priority=1, pet=max_dog)
+    task2 = Task(name="Walk Max", task_type="walk", duration=30, priority=2, pet=max_dog)
+    task3 = Task(name="Give Max medication", task_type="medication", duration=5, priority=1, pet=max_dog)
+    task4 = Task(name="Feed Bella", task_type="feeding", duration=15, priority=1, pet=bella_dog)
+    task5 = Task(name="Walk Bella", task_type="walk", duration=25, priority=2, pet=bella_dog)
+    
+    scheduler5 = Scheduler(owner=owner)
+    scheduler5.load_tasks_from_owner()
+    scheduler5.generate_daily_plan(sort_method="priority_duration")
+    
+    # Auto-assign sequential time slots starting at 8:00 AM
+    print("\nAuto-assigning time slots starting at 8:00 AM...")
+    scheduler5.assign_time_slots(start_time=480)
+    
+    print("\nScheduled tasks:")
+    for task in scheduler5.daily_plan:
+        if task.scheduled_time:
+            end_time = task.scheduled_time + task.duration
+            print(f"  {scheduler5._format_time(task.scheduled_time)}-{scheduler5._format_time(end_time)}: {task.name} ({task.pet.name}, {task.duration} min)")
+    
+    # Check for conflicts (should be none!)
+    scheduler5.print_conflict_report()
+    
+    print("="*70)
+    print("🎉 All conflict detection tests completed!")
+    print("="*70)
 
 
 if __name__ == "__main__":

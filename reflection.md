@@ -31,8 +31,23 @@ Based on these actions, I plan to design four main classes:
 
 **b. Tradeoffs**
 
-- Describe one tradeoff your scheduler makes.
-- Why is that tradeoff reasonable for this scenario?
+My scheduler uses a **greedy algorithm** that sorts tasks by priority and schedules them sequentially until time runs out. This means:
+
+- **What it does**: Picks the highest priority task, then the next highest, and so on
+- **What it sacrifices**: May not maximize the total number of tasks completed
+
+**Example scenario:**
+- Available time: 60 minutes
+- Tasks: High-priority 50-min walk, Medium-priority 20-min feeding, Medium-priority 15-min grooming
+
+**Greedy result**: Schedules the 50-min walk (total: 1 task, 50 min used)
+**Optimal result**: Could schedule both medium tasks (total: 2 tasks, 35 min used)
+
+**Why this tradeoff is reasonable:**
+
+In pet care, **priority matters more than quantity**. A pet owner would rather ensure their dog gets its critical arthritis medication (5 min, high priority) than fit in three optional grooming tasks (90 min total, low priority). The greedy approach guarantees that the most important tasks never get skipped, even if it means fewer total tasks complete.
+
+Additionally, the greedy algorithm runs in O(n log n) time (due to sorting), making it fast and predictable even with many tasks.
 
 ---
 

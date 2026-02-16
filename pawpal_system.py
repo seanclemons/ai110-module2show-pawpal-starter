@@ -76,6 +76,7 @@ class Task:
     pet: Pet
     recurrence: str = 'daily'
     completed: bool = False
+    scheduled_time: Optional[int] = None  # Start time in minutes from midnight (e.g., 540 = 9:00 AM)
     
     def __post_init__(self):
         """Automatically register this task with its pet."""
@@ -126,10 +127,70 @@ class Scheduler:
         """Load all tasks from the owner's pets into the scheduler."""
         self.tasks = self.owner.get_all_tasks()
     
-    def generate_daily_plan(self) -> List[Task]:
+    # ==================== SORTING METHODS ====================
+    
+    def sort_by_priority(self) -> List[Task]:
+        """Return tasks sorted by priority (highest first)."""
+        return sorted(self.tasks, key=lambda t: t.priority)
+    
+    def sort_by_duration(self) -> List[Task]:
+        """Return tasks sorted by duration (shortest first)."""
+        return sorted(self.tasks, key=lambda t: t.duration)
+    
+    def sort_by_duration_desc(self) -> List[Task]:
+        """Return tasks sorted by duration (longest first)."""
+        return sorted(self.tasks, key=lambda t: t.duration, reverse=True)
+    
+    def sort_by_priority_then_duration(self) -> List[Task]:
+        """
+        Return tasks sorted by priority first, then by duration.
+        For same priority, shorter tasks come first.
+        """
+        return sorted(self.tasks, key=lambda t: (t.priority, t.duration))
+    
+    def sort_by_pet_name(self) -> List[Task]:
+        """Return tasks sorted alphabetically by pet name."""
+        return sorted(self.tasks, key=lambda t: t.pet.name)
+    
+    # ==================== FILTERING METHODS ====================
+    
+    def filter_by_pet(self, pet_name: str) -> List[Task]:
+        """Return only tasks for a specific pet."""
+        return [task for task in self.tasks if task.pet.name == pet_name]
+    
+    def filter_by_completion(self, completed: bool = False) -> List[Task]:
+        """
+        Return tasks filtered by completion status.
+        completed=True returns completed tasks, False returns incomplete tasks.
+        """
+        return [task for task in self.tasks if task.completed == completed]
+    
+    def filter_by_priority(self, min_priority: int = 1, max_priority: int = 5) -> List[Task]:
+        """
+        Return tasks within a priority range.
+        Example: filter_by_priority(1, 2) returns only high-priority tasks.
+        """
+        return [task for task in self.tasks if min_priority <= task.priority <= max_priority]
+    
+    def filter_by_task_type(self, task_type: str) -> List[Task]:
+        """Return only tasks of a specific type (feeding, walk, medication, etc.)."""
+        return [task for task in self.tasks if task.task_type == task_type]
+    
+    def get_high_priority_tasks(self) -> List[Task]:
+        """Return only high-priority tasks (priority 1-2)."""
+        return [task for task in self.tasks if task.is_high_priority()]
+    
+    # ==================== SCHEDULING ALGORITHM ====================
+    
+    def generate_daily_plan(self, sort_method: str = "priority") -> List[Task]:
         """
         Generate optimized daily schedule based on priority and time constraints.
-        Uses a greedy algorithm: highest priority tasks first until time runs out.
+        
+        Args:
+            sort_method: How to sort tasks before scheduling
+                - "priority" (default): highest priority first
+                - "duration": shortest tasks first
+                - "priority_duration": priority first, then duration
         """
         # Reset plan and conflicts
         self.daily_plan = []
@@ -139,8 +200,13 @@ class Scheduler:
         if not self.tasks:
             self.load_tasks_from_owner()
         
-        # Sort tasks by priority (highest first)
-        sorted_tasks = self.sort_by_priority()
+        # Sort tasks based on method
+        if sort_method == "duration":
+            sorted_tasks = self.sort_by_duration()
+        elif sort_method == "priority_duration":
+            sorted_tasks = self.sort_by_priority_then_duration()
+        else:  # default: "priority"
+            sorted_tasks = self.sort_by_priority()
         
         # Get available time
         available_time = self.owner.get_available_time()
@@ -202,6 +268,114 @@ class Scheduler:
         """Calculate total time needed for all tasks in daily plan."""
         return sum(task.duration for task in self.daily_plan)
     
-    def sort_by_priority(self) -> List[Task]:
-        """Return tasks sorted by priority (highest first)."""
-        return sorted(self.tasks, key=lambda t: t.priority)
+    # ==================== CONFLICT DETECTION ====================
+    
+    def detect_time_conflicts(self) -> List[tuple]:
+        """
+        Detect tasks that overlap in time.
+        Returns list of tuples: (task1, task2, conflict_reason)
+        """
+        conflicts = []
+        
+        # Only check tasks with scheduled times
+        scheduled_tasks = [t for t in self.daily_plan if t.scheduled_time is not None]
+        
+        for i, task1 in enumerate(scheduled_tasks):
+            for task2 in scheduled_tasks[i+1:]:
+                # Calculate end times
+                task1_end = task1.scheduled_time + task1.duration
+                task2_end = task2.scheduled_time + task2.duration
+                
+                # Check for overlap: task1 starts before task2 ends AND task2 starts before task1 ends
+                if (task1.scheduled_time < task2_end and task2.scheduled_time < task1_end):
+                    reason = f"Time overlap: both scheduled between {self._format_time(max(task1.scheduled_time, task2.scheduled_time))} and {self._format_time(min(task1_end, task2_end))}"
+                    conflicts.append((task1, task2, reason))
+        
+        return conflicts
+    
+    def detect_pet_conflicts(self) -> List[tuple]:
+        """
+        Detect if the same pet has multiple tasks at the same time.
+        Returns list of tuples: (task1, task2, conflict_reason)
+        """
+        conflicts = []
+        scheduled_tasks = [t for t in self.daily_plan if t.scheduled_time is not None]
+        
+        for i, task1 in enumerate(scheduled_tasks):
+            for task2 in scheduled_tasks[i+1:]:
+                # Same pet can't do two things at once
+                if task1.pet.name == task2.pet.name:
+                    task1_end = task1.scheduled_time + task1.duration
+                    task2_end = task2.scheduled_time + task2.duration
+                    
+                    if (task1.scheduled_time < task2_end and task2.scheduled_time < task1_end):
+                        reason = f"{task1.pet.name} cannot do two tasks simultaneously"
+                        conflicts.append((task1, task2, reason))
+        
+        return conflicts
+    
+    def detect_all_conflicts(self) -> Dict[str, List[tuple]]:
+        """
+        Run all conflict detection methods and return organized results.
+        Returns dict with conflict types as keys.
+        """
+        return {
+            'time_conflicts': self.detect_time_conflicts(),
+            'pet_conflicts': self.detect_pet_conflicts()
+        }
+    
+    def get_conflict_warnings(self) -> List[str]:
+        """
+        Generate user-friendly warning messages for all conflicts.
+        Returns list of warning strings.
+        """
+        warnings = []
+        all_conflicts = self.detect_all_conflicts()
+        
+        # Time conflicts
+        for task1, task2, reason in all_conflicts['time_conflicts']:
+            warnings.append(
+                f"⚠️  TIME CONFLICT: '{task1.name}' and '{task2.name}' overlap\n"
+                f"   {reason}"
+            )
+        
+        # Pet conflicts
+        for task1, task2, reason in all_conflicts['pet_conflicts']:
+            warnings.append(
+                f"⚠️  PET CONFLICT: {reason}\n"
+                f"   Tasks: '{task1.name}' and '{task2.name}'"
+            )
+        
+        return warnings
+    
+    def _format_time(self, minutes: int) -> str:
+        """Convert minutes from midnight to HH:MM format."""
+        hours = minutes // 60
+        mins = minutes % 60
+        return f"{hours:02d}:{mins:02d}"
+    
+    def assign_time_slots(self, start_time: int = 480) -> None:
+        """
+        Automatically assign time slots to tasks in daily_plan.
+        start_time: minutes from midnight (default 480 = 8:00 AM)
+        """
+        current_time = start_time
+        
+        for task in self.daily_plan:
+            task.scheduled_time = current_time
+            current_time += task.duration
+    
+    def print_conflict_report(self) -> None:
+        """Print a formatted report of all detected conflicts."""
+        warnings = self.get_conflict_warnings()
+        
+        if not warnings:
+            print("✅ No conflicts detected! All tasks are compatible.\n")
+        else:
+            print(f"\n{'='*70}")
+            print(f"⚠️  CONFLICT DETECTION REPORT")
+            print(f"{'='*70}")
+            print(f"Found {len(warnings)} conflict(s):\n")
+            for i, warning in enumerate(warnings, 1):
+                print(f"{i}. {warning}\n")
+            print(f"{'='*70}\n")
