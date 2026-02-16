@@ -8,7 +8,7 @@ PawPal+ helps busy pet owners stay consistent with pet care by tracking tasks, c
 
 ## 📸 Demo
 
-<a href="/course_images/ai110/pawpal_screenshot.png" target="_blank"><img src='/course_images/ai110/pawpal_screenshot.png' title='PawPal App' width='' alt='PawPal App' class='center-block' /></a>
+<img width="1827" height="841" alt="pawpal_screenshot" src="https://github.com/user-attachments/assets/600d75e3-7fad-44cc-ae3f-867795e80d4f" />
 
 *PawPal+ Streamlit interface showing schedule generation with conflict detection*
 
